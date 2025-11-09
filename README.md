@@ -141,49 +141,37 @@ PowerShell
 curl -X POST http://localhost:8080/api/v1/analyzes/async `
 -H "Authorization: Bearer $TOKEN" `
 -H "Content-Type: application/json" `
--d '{"requestId":"demo-async-1","email":"test-async@example.com","url":"[https://go.dev](https://go.dev)"}'
+-d '{"requestId":"demo-async-1","email":"test-async@example.com","url":"https://go.dev"}'
+```
 Success Response (202 Accepted):
-
 JSON
-
+```json
 {
     "message": "Analysis request accepted and is being processed.",
     "requestId": "demo-async-1"
 }
+```
+
 3. Health & Observability
 These endpoints are not authenticated and are used for monitoring.
 
 Health Check: GET /health
 
-Bash
+```bash
 
 curl http://localhost:8080/health
 # {"status":"ok"}
+```
 Prometheus Metrics: GET /metrics
 
-Bash
-
+```bash
 curl http://localhost:8080/metrics
-# HELP http_request_duration_seconds Histogram of HTTP request durations in seconds.
-# TYPE http_request_duration_seconds histogram
-...
-Go Profiling (pprof):
+```
 
+Go Profiling (pprof):
+```bash
 http://localhost:8080/debug/pprof/ (index)
 
 http://localhost:8080/debug/pprof/goroutine?debug=1 (all goroutines)
+```
 
-🏛️ Architecture
-The project follows the Clean Architecture pattern to ensure separation of concerns:
-
-internal/domain: Core data structures (AnalysisRequest, AnalysisResult). No dependencies.
-
-internal/analysis: The application "use case" layer. Defines what to do (interfaces) and orchestrates the logic.
-
-internal/infrastructure: The "how." Provides concrete implementations for fetching (http_fetcher), parsing (html_parser), and link checking (checker).
-
-internal/transport/http: The delivery layer. Handles HTTP routing, requests, responses, and middleware.
-
-internal/worker: The other delivery layer. Consumes jobs from the queue and calls the same analysis service.
-
-cmd/server/main.go: The entrypoint. Its only job is to perform Dependency Injection (DI) and wire the application together.
