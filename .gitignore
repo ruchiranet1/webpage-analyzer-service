@@ -1,0 +1,24 @@
+# Build artifacts
+bin/
+*.exe
+*.out
+
+vendor/
+
+Environment files
+
+# environment variable files
+.env
+.env.*
+!/.env.example
+
+Log files
+
+*.log
+
+# IDE and OS files
+IDE and OS files
+
+.vscode/
+.idea/
+.DS_Store
