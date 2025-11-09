@@ -17,6 +17,7 @@ import (
 	"webpage-analyzer-service/internal/analysis"
 	"webpage-analyzer-service/internal/auth"
 	"webpage-analyzer-service/internal/config"
+	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/infrastructure/cache"
 	"webpage-analyzer-service/internal/infrastructure/fetcher"
 	"webpage-analyzer-service/internal/infrastructure/linkchecker"
@@ -52,7 +53,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	// 2.Logging
 	logger := logging.NewLogger(cfg.LoggerLevel)
 	slog.SetDefault(logger)
-	logger.Info("Configuration loaded. Starting application...")
+	logger.Debug("Configuration loaded. Starting the web page application...")
 
 	// 3. Rate Limiter
 	limiter := rate.NewLimiter(rate.Limit(cfg.RateLimiter.RPS), cfg.RateLimiter.Burst)
@@ -60,6 +61,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	// Validation
 	validator, err := validation.NewURLValidator()
 	if err != nil {
+		logger.Error("failed to create url validator", constants.Error, err)
 		return fmt.Errorf("failed to create url validator: %w", err)
 	}
 
@@ -75,7 +77,8 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	authSvc, err := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.TokenTTL)
 
 	if err != nil {
-		return fmt.Errorf("failed to create auth service: %w", err)
+		logger.Error("failed to validate the token from auth service", constants.Error, err)
+		return fmt.Errorf("failed to validate the token from auth service: %w", err)
 	}
 
 	// Infrastructure: Queue (for Async API - next stage)
@@ -136,7 +139,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		consumer.Start(ctx) // This will block until context is canceled
+		consumer.Start(ctx)
 		logger.Info("Worker has shut down.")
 	}()
 
@@ -146,7 +149,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 		defer wg.Done()
 		logger.Info(fmt.Sprintf("HTTP server listening on :%s", cfg.HTTPServer.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("HTTP server error", "error", err)
+			logger.Error(constants.HTTP_SERVER_ERROR, constants.Error, err)
 			stop()
 		}
 		logger.Info("HTTP server has shut down.")
@@ -163,7 +166,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 
 	// Shutdown the HTTP server
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("HTTP server graceful shutdown failed", "error", err)
+		logger.Error(constants.HTTP_FORCED_STOP_ERROR, constants.Error, err)
 	}
 
 	// Wait for all goroutines to finish
