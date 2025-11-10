@@ -1,0 +1,24 @@
+.dockerignore
+
+# ignore the git files
+.git
+.gitignore
+
+# ignore dockerfile
+Dockerfile
+.dockerignore
+
+# ignore readme
+*.md
+README.md
+
+
+bin/
+vendor/
+
+# environment variable files
+.env
+.env.*
+
+.vscode/
+.idea/
