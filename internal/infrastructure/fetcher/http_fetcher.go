@@ -89,7 +89,5 @@ func (f *httpFetcher) Fetch(ctx context.Context, url string) (io.ReadCloser, *do
 		// wrap it as a generic internal error
 		return nil, domain.NewInternalError(constants.ErrInternalServer, err)
 	}
-
-	// Type-assert the successful result
 	return body.(io.ReadCloser), nil
 }
