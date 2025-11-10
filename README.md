@@ -104,7 +104,7 @@ curl -X POST http://localhost:8080/api/v1/analyzes `
 -H "Authorization: Bearer $TOKEN" `
 -H "Content-Type: application/json" `
 -H "Idempotency-Key: $(New-Guid)" `
--d '{"requestId":"demo-sync-1","email":"test@example.com","url":"[https://httpbin.org/html](https://httpbin.org/html)"}'
+-d '{"requestId":"demo-sync-1","email":"test@example.com","url":"https://httpbin.org/html"}'
 ```
 
 Success Response (200 OK):
@@ -141,7 +141,7 @@ PowerShell
 curl -X POST http://localhost:8080/api/v1/analyzes/async `
 -H "Authorization: Bearer $TOKEN" `
 -H "Content-Type: application/json" `
--d '{"requestId":"demo-async-1","email":"test-async@example.com","url":"https://go.dev"}'
+-d '{"requestId":"demo-async-1","email":"test-async@example.com","url":"https://go.dev"'
 ```
 Success Response (202 Accepted):
 JSON
