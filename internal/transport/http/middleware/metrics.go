@@ -10,7 +10,6 @@ import (
 )
 
 // metricsResponseWriter wraps http.ResponseWriter to capture the status code
-// for our metrics.
 type metricsResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -26,9 +25,6 @@ func (mrw *metricsResponseWriter) WriteHeader(statusCode int) {
 }
 
 // --- Prometheus Metrics Definitions ---
-// We use promauto to automatically register the metrics with the default registry.
-// This is an application of the Observer pattern.
-
 var (
 	// httpRequestsTotal counts the total number of HTTP requests.
 	// It has labels for status code, method, and path.
@@ -41,7 +37,6 @@ var (
 	)
 
 	// httpRequestDuration observes the duration of HTTP requests.
-	// It uses a histogram to track request latencies.
 	httpRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "web_analyzer_http_request_duration_seconds",

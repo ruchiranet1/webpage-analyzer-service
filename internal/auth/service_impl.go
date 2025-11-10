@@ -7,25 +7,23 @@ import (
 	"strings"
 	"time"
 
+	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 // jwtService is the concrete implementation of the auth.Service interface.
-// It uses the 'golang-jwt/jwt' library.
 type jwtService struct {
-	// jwtSecret is the secret key used to sign and validate tokens.
-	// This MUST be loaded from config in a real application.
+	// jwtSecret is the secret key used to validate tokens.
 	jwtSecret []byte
-	// tokenTTL is the time-to-live for generated tokens.
-	tokenTTL time.Duration
+	tokenTTL  time.Duration
 }
 
 // NewJWTService is the Factory Function for our auth service.
 func NewJWTService(secret string, tokenTTL time.Duration) (Service, error) {
 	if secret == "" {
-		return nil, fmt.Errorf("JWT secret cannot be empty")
+		return nil, fmt.Errorf("%s: secret cannot be empty", constants.MsgFailedToCreateAuthSvc)
 	}
 	return &jwtService{
 		jwtSecret: []byte(secret),
@@ -61,14 +59,13 @@ func (s *jwtService) GenerateToken(ctx context.Context, userID string, email str
 	// Sign the token with our secret
 	signedToken, err := token.SignedString(s.jwtSecret)
 	if err != nil {
-		return "", domain.NewAppError(http.StatusInternalServerError, "Failed to sign token", err)
+		return "", domain.NewInternalError(constants.ErrTokenSign, err)
 	}
 
 	return signedToken, nil
 }
 
 // ValidateRequest parses and validates a JWT from an HTTP request's
-// "Authorization" header.
 func (s *jwtService) ValidateRequest(ctx context.Context, r *http.Request) (string, *domain.AppError) {
 
 	// TODO need to resolve this later
@@ -92,14 +89,14 @@ func (s *jwtService) ValidateRequest(ctx context.Context, r *http.Request) (stri
 	// Handle parsing errors
 	if err != nil {
 		if err == jwt.ErrTokenExpired {
-			return "", domain.NewAppError(http.StatusUnauthorized, "Token is expired", err)
+			return "", domain.NewAppError(http.StatusUnauthorized, constants.ErrTokenExpired, err)
 		}
-		return "", domain.NewAppError(http.StatusUnauthorized, "Invalid token", err)
+		return "", domain.NewAppError(http.StatusUnauthorized, constants.ErrTokenInvalid, err)
 	}
 
 	// Check if the token is valid and we have our claims
 	if !token.Valid || claims.UserID == "" {
-		return "", domain.NewAppError(http.StatusUnauthorized, "Invalid token claims", nil)
+		return "", domain.NewAppErrorUser(http.StatusUnauthorized, constants.ErrTokenClaims)
 	}
 
 	// Token is valid, return the UserID
@@ -110,12 +107,12 @@ func (s *jwtService) ValidateRequest(ctx context.Context, r *http.Request) (stri
 func (s *jwtService) extractTokenFromHeader(r *http.Request) (string, *domain.AppError) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
-		return "", domain.NewAppError(http.StatusUnauthorized, "Authorization header is missing", nil)
+		return "", domain.NewAppErrorUser(http.StatusUnauthorized, constants.ErrAuthHeaderMissing)
 	}
 
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-		return "", domain.NewAppError(http.StatusUnauthorized, "Authorization header must be in 'Bearer <token>' format", nil)
+		return "", domain.NewAppErrorUser(http.StatusUnauthorized, constants.ErrAuthHeaderFormat)
 	}
 
 	return parts[1], nil

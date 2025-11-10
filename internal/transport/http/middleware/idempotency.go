@@ -14,7 +14,6 @@ import (
 const IdempotencyKeyHeader = "Idempotency-Key"
 
 // cachedResponse is the struct we will serialize and store in the cache.
-// It must include all parts of the response: status, headers, and body.
 type cachedResponse struct {
 	StatusCode int         `json:"status_code"`
 	Headers    http.Header `json:"headers"`
@@ -22,7 +21,6 @@ type cachedResponse struct {
 }
 
 // responseRecorder is a wrapper for http.ResponseWriter to capture the response.
-// This implements the http.ResponseWriter interface.
 type responseRecorder struct {
 	http.ResponseWriter
 	statusCode int
@@ -51,18 +49,13 @@ func (r *responseRecorder) Write(b []byte) (int, error) {
 }
 
 // IdempotencyMiddleware provides a middleware for handling idempotent requests.
-// This is the concrete implementation of the Idempotent Receiver pattern.
 type IdempotencyMiddleware struct {
 	cache  cache.Service
 	logger *slog.Logger
-	// This is the "usage" modification we discussed.
-	// The middleware *knows* what TTL to use, not the cache service.
-	ttl time.Duration
+	ttl    time.Duration
 }
 
 // NewIdempotencyMiddleware is the factory function.
-// It receives the *specific* TTL for idempotency from the config
-// (via main.go) and stores it.
 func NewIdempotencyMiddleware(c cache.Service, l *slog.Logger, ttl time.Duration) *IdempotencyMiddleware {
 	return &IdempotencyMiddleware{
 		cache:  c,
@@ -77,13 +70,8 @@ func (m *IdempotencyMiddleware) Middleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 
 		// 1. Get the idempotency key from the header.
-		// As we discussed, using the `requestId` from the payload is complex
-		// in middleware, as it requires reading the body. The header is
-		// the standard, stateless, and cleaner approach.
 		key := r.Header.Get(IdempotencyKeyHeader)
 		if key == "" {
-			// We could error out, but for robustness, we'll just log
-			// and pass through. The client *should* provide a key.
 			m.logger.WarnContext(ctx, "Idempotency-Key header missing", "path", r.URL.Path)
 			next.ServeHTTP(w, r)
 			return
@@ -127,8 +115,6 @@ func (m *IdempotencyMiddleware) Middleware(next http.Handler) http.Handler {
 		next.ServeHTTP(recorder, r)
 
 		// 5. After the handler, cache the response
-		// We only cache successful or "known error" responses (2xx, 3xx, 4xx).
-		// We don't cache 5xx server errors, as they might be transient.
 		if recorder.statusCode < 500 {
 			resp := cachedResponse{
 				StatusCode: recorder.statusCode,
@@ -145,8 +131,6 @@ func (m *IdempotencyMiddleware) Middleware(next http.Handler) http.Handler {
 			}
 
 			// *** THIS IS THE KEY ***
-			// We use the generic cache.Set with the *specific* TTL
-			// that was provided to this middleware.
 			if err := m.cache.Set(ctx, key, data, m.ttl); err != nil {
 				m.logger.ErrorContext(ctx, "Cache SET failed for idempotency", "key", key, "error", err)
 			}

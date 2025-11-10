@@ -3,9 +3,11 @@ package analysis
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"net/url"
 	"strings"
 
+	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/domain"
 )
 
@@ -37,30 +39,30 @@ func (s *serviceImpl) AnalyzePage(ctx context.Context, rawURL string) (*domain.A
 	s.logger.InfoContext(ctx, "Starting page analysis", "url", rawURL)
 
 	// 1. Validation & Parsing
-	// The service layer is responsible for *normalization* (e.g., adding scheme).
-	baseURL, err := s.normalizeURL(rawURL)
-	if err != nil {
-		s.logger.WarnContext(ctx, "Invalid URL provided", "url", rawURL, "error", err)
-		return nil, domain.NewAppError(400, "Invalid URL provided", err)
+	baseURL, appErr := s.normalizeURL(rawURL)
+	if appErr != nil {
+		s.logger.WarnContext(ctx, "Invalid URL provided", "url", rawURL, "error", appErr.InternalError())
+		return nil, appErr
 	}
 
 	// 2. Fetch the page
 	pageBody, appErr := s.fetcher.Fetch(ctx, baseURL.String())
 	if appErr != nil {
 		s.logger.ErrorContext(ctx, "Failed to fetch page", "url", baseURL.String(), "error", appErr)
-		return nil, appErr // Pass the formatted error up
+		return nil, appErr
 	}
 	defer pageBody.Close()
 
-	// 3. Parse the content (using the injected parser)
+	// 3. Parse the content
 	s.logger.DebugContext(ctx, "Parsing page content", "url", baseURL.String())
 	result, allLinks, err := s.parser.Parse(ctx, pageBody, baseURL)
 	if err != nil {
 		s.logger.ErrorContext(ctx, "Failed to parse page content", "url", baseURL.String(), "error", err)
-		return nil, domain.NewAppError(500, "Failed to parse page content", err)
+		return nil, domain.NewInternalError(constants.ErrURLParse, err)
+
 	}
 
-	// 4. Check links concurrently (using the injected checker)
+	// 4. Check links concurrently
 	s.logger.DebugContext(ctx, "Checking links concurrently", "url", baseURL.String(), "link_count", len(allLinks))
 	inaccessibleCount := s.checker.Check(ctx, allLinks)
 	result.Links.Inaccessible = inaccessibleCount
@@ -69,25 +71,25 @@ func (s *serviceImpl) AnalyzePage(ctx context.Context, rawURL string) (*domain.A
 	return result, nil
 }
 
-// normalizeURL is a helper function to ensure the URL is valid
-func (s *serviceImpl) normalizeURL(rawURL string) (*url.URL, error) {
+// Helper function to ensure the URL is valid
+func (s *serviceImpl) normalizeURL(rawURL string) (*url.URL, *domain.AppError) {
 	if strings.TrimSpace(rawURL) == "" {
-		return nil, domain.NewAppError(400, "URL cannot be empty", nil)
+		return nil, domain.NewAppErrorUser(http.StatusBadRequest, constants.ErrURLEmpty)
 	}
 
-	// Add a default scheme if one is missing, as required by net/http.Client
+	// scheme is missing, return error
 	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https") {
-		return nil, domain.NewAppError(400, "URL must start with http:// or https://", nil)
+		return nil, domain.NewAppErrorUser(http.StatusBadRequest, constants.ErrURLSchemeMissing)
 	}
 
 	// Use net/url to parse
 	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
-		return nil, domain.NewAppError(400, "Invalid URL format", err)
+		return nil, domain.NewAppError(http.StatusBadRequest, constants.ErrURLInvalidFormat, err)
 	}
 
 	if parsedURL.Host == "" {
-		return nil, domain.NewAppError(400, "URL must include a valid host", nil)
+		return nil, domain.NewAppErrorUser(http.StatusBadRequest, constants.ErrURLHostMissing)
 	}
 
 	return parsedURL, nil

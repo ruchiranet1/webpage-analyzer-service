@@ -61,7 +61,6 @@ func (c *Consumer) Start(ctx context.Context) {
 // processJob handles a single analysis request.
 func (c *Consumer) processJob(ctx context.Context, job *domain.AnalysisRequest) {
 	// Create a new context for this specific job, with a timeout
-	// This prevents one long-running job from holding up the worker.
 	jobCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 

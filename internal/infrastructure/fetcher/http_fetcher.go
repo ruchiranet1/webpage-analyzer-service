@@ -2,12 +2,14 @@ package fetcher // This was 'linkchecker'
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
 
 	"webpage-analyzer-service/internal/analysis"
+	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/domain"
 
 	"github.com/sony/gobreaker"
@@ -43,7 +45,6 @@ func NewHTTPFetcher(timeout time.Duration) analysis.PageFetcher {
 }
 
 // Fetch implements the analysis.PageFetcher interface.
-// It wraps the HTTP GET call within the Circuit Breaker.
 func (f *httpFetcher) Fetch(ctx context.Context, url string) (io.ReadCloser, *domain.AppError) {
 	// Execute the request via the Circuit Breaker
 	body, err := f.cb.Execute(func() (interface{}, error) {
@@ -58,54 +59,37 @@ func (f *httpFetcher) Fetch(ctx context.Context, url string) (io.ReadCloser, *do
 
 		resp, err := f.client.Do(req)
 		if err != nil {
-			// This could be a timeout, DNS error, or connection refused
-			return nil, &fetchError{
-				statusCode: http.StatusServiceUnavailable, // Treat network errors as 503
-				msg:        fmt.Sprintf("Failed to fetch URL: %s", err.Error()),
-				internal:   err,
-			}
+			errDef := constants.ErrURLFetch.Errorf(err.Error())
+			return nil, domain.NewAppError(http.StatusServiceUnavailable, errDef, err)
 		}
 
-		// This is critical for the "inaccessible links" requirement.
+		// Got the success response, but link is not accessible.
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			// We successfully got a response, but it's an error status.
-			resp.Body.Close() // Must close the body to prevent leaks
-			return nil, &fetchError{
-				statusCode: resp.StatusCode,
-				msg:        fmt.Sprintf("Received non-2xx status code: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode)),
-				internal:   fmt.Errorf("status code %d", resp.StatusCode),
-			}
+			resp.Body.Close()
+			errMsg := fmt.Sprintf("Received non-2xx status code: %d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+			errDef := constants.ErrURLFetch.Errorf(errMsg)
+			return nil, domain.NewAppError(resp.StatusCode, errDef, fmt.Errorf("status code %d", resp.StatusCode))
 		}
 		return resp.Body, nil
 	})
 
 	// Handle errors from the Circuit Breaker
 	if err != nil {
-		// Check if it's our custom fetchError
-		if fe, ok := err.(*fetchError); ok {
-			return nil, domain.NewAppError(fe.statusCode, fe.msg, fe.internal)
+		// Check if the circuit breaker is open
+		if err == gobreaker.ErrOpenState {
+			return nil, domain.NewAppError(http.StatusServiceUnavailable, constants.ErrCircuitBreakerOpen, err)
 		}
 
 		// Check if the circuit breaker is open
-		if err == gobreaker.ErrOpenState {
-			return nil, domain.NewAppError(http.StatusServiceUnavailable, "Service is temporarily unavailable (Circuit Breaker open)", err)
+		var appErr *domain.AppError
+		if errors.As(err, &appErr) {
+			return nil, appErr
 		}
 
-		// Other circuit breaker or internal errors
-		return nil, domain.NewAppError(http.StatusInternalServerError, "Internal server error during fetch", err)
+		// wrap it as a generic internal error
+		return nil, domain.NewInternalError(constants.ErrInternalServer, err)
 	}
 
 	// Type-assert the successful result
 	return body.(io.ReadCloser), nil
-}
-
-// fetchError is a custom error type to shuttle HTTP status codes
-type fetchError struct {
-	statusCode int
-	msg        string
-	internal   error
-}
-
-func (fe *fetchError) Error() string {
-	return fe.internal.Error()
 }

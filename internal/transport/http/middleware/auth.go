@@ -23,7 +23,7 @@ func Authenticate(authSvc auth.Service, logger *slog.Logger) func(next http.Hand
 			userID, appErr := authSvc.ValidateRequest(r.Context(), r)
 			if appErr != nil {
 				// If validation fails, write the error and stop the request
-				logger.WarnContext(r.Context(), "Authentication failed", "error", appErr.Message)
+				logger.WarnContext(r.Context(), "Authentication failed", "error", appErr.InternalError(), "client_ip", r.RemoteAddr)
 				writeErrorResponse(w, appErr)
 				return
 			}
@@ -40,10 +40,6 @@ func Authenticate(authSvc auth.Service, logger *slog.Logger) func(next http.Hand
 
 func writeErrorResponse(w http.ResponseWriter, err *domain.AppError) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(err.Code)
-	// set the error code message to prevent all information log
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"code":    err.Code,
-		"message": err.Message,
-	})
+	w.WriteHeader(err.StatusCode)
+	json.NewEncoder(w).Encode(err)
 }

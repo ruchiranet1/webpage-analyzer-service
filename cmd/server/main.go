@@ -24,7 +24,6 @@ import (
 	"webpage-analyzer-service/internal/infrastructure/logging"
 	"webpage-analyzer-service/internal/infrastructure/parser"
 	"webpage-analyzer-service/internal/infrastructure/queue"
-	"webpage-analyzer-service/internal/infrastructure/validation"
 	httptransport "webpage-analyzer-service/internal/transport/http"
 	"webpage-analyzer-service/internal/worker"
 )
@@ -44,31 +43,30 @@ func main() {
 
 // run is the main application function.
 func run(ctx context.Context, stop context.CancelFunc) error {
-	// 1. --- Configuration ---
+	// 1. --- Bootstrap Logging ---
+	bootstrapLogger := logging.NewLogger("info") // Default to "info"
+	slog.SetDefault(bootstrapLogger)
+	bootstrapLogger.Info("Bootstrapping application...")
+
+	// 2. --- Configuration ---
+	bootstrapLogger.Info("Loading configuration...")
 	cfg, err := config.Load()
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		// Use correct slog format
+		bootstrapLogger.Error(constants.MsgFailedToLoadConfig, "error", err)
+		return fmt.Errorf("%s: %w", constants.MsgFailedToLoadConfig, err)
 	}
-
-	// 2.Logging
-	logger := logging.NewLogger(cfg.LoggerLevel)
+	logger := logging.NewLogger(cfg.Logger.Level)
 	slog.SetDefault(logger)
-	logger.Debug("Configuration loaded. Starting the web page application...")
+	logger.Info("Configuration loaded. Starting application...", "log_level", cfg.Logger.Level)
 
 	// 3. Rate Limiter
 	limiter := rate.NewLimiter(rate.Limit(cfg.RateLimiter.RPS), cfg.RateLimiter.Burst)
 
-	// Validation
-	validator, err := validation.NewURLValidator()
-	if err != nil {
-		logger.Error("failed to create url validator", constants.Error, err)
-		return fmt.Errorf("failed to create url validator: %w", err)
-	}
-
 	// Infrastructure: Fetcher, Parser, LinkChecker
-	pageFetcher := fetcher.NewHTTPFetcher(cfg.Fetcher.Timeout)
+	pageFetcher := fetcher.NewHTTPFetcher(cfg.Services.FetcherTimeout)
 	pageParser := parser.NewHTMLParser(logger.With("component", "parser"))
-	linkChecker := linkchecker.NewLinkChecker(cfg.LinkChecker.Timeout, logger.With("component", "linkchecker"))
+	linkChecker := linkchecker.NewLinkChecker(cfg.Services.LinkCheckerTimeout, logger.With("component", "linkchecker"))
 
 	// Infrastructure: Caching (for Idempotency)
 	cacheSvc := cache.NewInMemoryCache()
@@ -77,8 +75,8 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	authSvc, err := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.TokenTTL)
 
 	if err != nil {
-		logger.Error("failed to validate the token from auth service", constants.Error, err)
-		return fmt.Errorf("failed to validate the token from auth service: %w", err)
+		logger.Error(constants.MsgFailedToCreateAuthSvc, constants.Error, err)
+		return fmt.Errorf("%s: %w", constants.MsgFailedToCreateAuthSvc, err)
 	}
 
 	// Infrastructure: Queue (for Async API - next stage)
@@ -98,7 +96,6 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	//  Create the Handler (injects services)
 	httpHandler := httptransport.NewHandler(
 		analysisSvc,
-		validator,
 		logger.With("component", "http_handler"),
 		queuePub,
 	)
@@ -110,13 +107,13 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 		CacheSvc:       cacheSvc,
 		Logger:         logger.With("component", "http_router"),
 		RateLimiter:    limiter,
-		IdempotencyTTL: cfg.IdempotencyTTL,
+		IdempotencyTTL: cfg.Middleware.IdempotencyTTL,
 	}
 	router := httptransport.NewRouter(routerConfig)
 
 	// Create the HTTP Server
 	srv := &http.Server{
-		Addr:    ":" + cfg.HTTPServer.Port,
+		Addr:    ":" + fmt.Sprint(cfg.HTTP.Port),
 		Handler: router,
 		// Add standard timeouts, TODO need to add to the config.
 		ReadTimeout:  5 * time.Second,
@@ -147,9 +144,9 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		logger.Info(fmt.Sprintf("HTTP server listening on :%s", cfg.HTTPServer.Port))
+		logger.Info(fmt.Sprintf("HTTP server listening on :%d", cfg.HTTP.Port))
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error(constants.HTTP_SERVER_ERROR, constants.Error, err)
+			logger.Error(constants.MsgFailedToHttpServer, constants.Error, err)
 			stop()
 		}
 		logger.Info("HTTP server has shut down.")
@@ -161,12 +158,12 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	logger.Info("Shutdown signal received. Shutting down services...")
 
 	// Create a new context for shutdown with a timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTPServer.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), cfg.HTTP.ShutdownTimeout)
 	defer shutdownCancel()
 
 	// Shutdown the HTTP server
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error(constants.HTTP_FORCED_STOP_ERROR, constants.Error, err)
+		logger.Error(constants.MsgFailedToStopHttpServer, constants.Error, err)
 	}
 
 	// Wait for all goroutines to finish

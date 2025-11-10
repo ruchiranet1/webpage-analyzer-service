@@ -8,18 +8,14 @@ import (
 	"net/http"
 
 	"webpage-analyzer-service/internal/analysis"
+	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/domain"
-	"webpage-analyzer-service/internal/infrastructure/queue" // Now imported
-	"webpage-analyzer-service/internal/infrastructure/validation"
-	// We will need a queue publisher interface for the async handler
-	// "webpage-analyzer-service/internal/infrastructure/queue"
+	"webpage-analyzer-service/internal/infrastructure/queue"
 )
 
 // Handler holds all the dependencies required for our HTTP handlers.
-// This is an application of the Dependency Injection (DI) pattern.
 type Handler struct {
 	analysisSvc analysis.Service
-	validator   validation.Validator
 	logger      *slog.Logger
 	asyncPub    queue.Publisher // Now enabled
 }
@@ -27,15 +23,13 @@ type Handler struct {
 // NewHandler is the factory function for creating a new Handler.
 func NewHandler(
 	analysisSvc analysis.Service,
-	validator validation.Validator,
 	logger *slog.Logger,
-	asyncPub queue.Publisher, // Now enabled
+	asyncPub queue.Publisher,
 ) *Handler {
 	return &Handler{
 		analysisSvc: analysisSvc,
-		validator:   validator,
 		logger:      logger,
-		asyncPub:    asyncPub, // Now enabled
+		asyncPub:    asyncPub,
 	}
 }
 
@@ -52,20 +46,12 @@ func (h *Handler) HandleAnalyzeSync(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Decode the request payload
 	var req domain.AnalysisRequest
-	if err := h.readJSON(w, r, &req); err != nil {
-		h.writeError(w, err)
-		return
-	}
-
-	// 2. Validate the URL from the payload
-	if appErr := h.validator.ValidateURL(ctx, req.URL); appErr != nil {
-		h.logger.WarnContext(ctx, "Invalid URL in request", "url", req.URL, "requestId", req.RequestID)
+	if appErr := h.readJSON(w, r, &req); appErr != nil {
 		h.writeError(w, appErr)
 		return
 	}
 
-	// 3. Call the analysis service
-	// This is the core "use case" call.
+	// 2. Call the analysis service
 	result, appErr := h.analysisSvc.AnalyzePage(ctx, req.URL)
 	if appErr != nil {
 		h.logger.ErrorContext(ctx, "Analysis service failed", "url", req.URL, "requestId", req.RequestID, "error", appErr.InternalError())
@@ -73,7 +59,7 @@ func (h *Handler) HandleAnalyzeSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Write the successful response
+	// 3. Write the successful response
 	h.writeJSON(w, http.StatusOK, result)
 }
 
@@ -84,27 +70,19 @@ func (h *Handler) HandleAnalyzeAsync(w http.ResponseWriter, r *http.Request) {
 
 	// 1. Decode the request payload
 	var req domain.AnalysisRequest
-	if err := h.readJSON(w, r, &req); err != nil {
-		h.writeError(w, err)
-		return
-	}
-
-	// 2. Validate the URL
-	if appErr := h.validator.ValidateURL(ctx, req.URL); appErr != nil {
-		h.logger.WarnContext(ctx, "Invalid URL in async request", "url", req.URL, "requestId", req.RequestID)
+	if appErr := h.readJSON(w, r, &req); appErr != nil {
 		h.writeError(w, appErr)
 		return
 	}
 
-	// 3. Publish the job to the message queue
-	// (This part is commented out as we haven't built the queue yet)
+	// 2. Publish the job to the message queue
 	if err := h.asyncPub.Publish(ctx, &req); err != nil {
 		h.logger.ErrorContext(ctx, "Failed to publish async job", "requestId", req.RequestID, "error", err)
-		h.writeError(w, domain.NewAppError(500, "Failed to schedule analysis", err))
+		h.writeError(w, domain.NewInternalError(constants.ErrInternalServer, err))
 		return
 	}
 
-	// 4. Write the "Accepted" response
+	// 3. Write the "Accepted" response
 	h.logger.InfoContext(ctx, "Async job accepted", "requestId", req.RequestID, "url", req.URL)
 	h.writeJSON(w, http.StatusAccepted, map[string]string{
 		"message":   "Analysis request accepted and is being processed.",
@@ -112,15 +90,11 @@ func (h *Handler) HandleAnalyzeAsync(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// --- HTTP Helper Functions ---
-
 // writeJSON is a helper for sending standardized JSON responses.
 func (h *Handler) writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(data); err != nil {
-		// This is tricky: we can't write an error *after* the header is sent.
-		// We just log it.
 		h.logger.Error("Failed to write JSON response", "error", err)
 	}
 }
@@ -129,35 +103,31 @@ func (h *Handler) writeJSON(w http.ResponseWriter, status int, data interface{})
 func (h *Handler) writeError(w http.ResponseWriter, err error) {
 	var appErr *domain.AppError
 	if errors.As(err, &appErr) {
-		// This is a known, application-level error
-		h.writeJSON(w, appErr.Code, appErr)
+		h.writeJSON(w, appErr.StatusCode, appErr)
 	} else {
-		// This is an unknown, internal error (like a JSON parsing error)
-		h.writeJSON(w, http.StatusInternalServerError, domain.NewAppError(
-			http.StatusInternalServerError,
-			"An internal server error occurred",
+		h.writeJSON(w, http.StatusInternalServerError, domain.NewInternalError(
+			constants.ErrInternalServer,
 			err,
 		))
 	}
 }
 
 // readJSON is a helper for decoding JSON request bodies safely.
-func (h *Handler) readJSON(w http.ResponseWriter, r *http.Request, dst interface{}) error {
+func (h *Handler) readJSON(w http.ResponseWriter, r *http.Request, dst interface{}) *domain.AppError {
 	// Use http.MaxBytesReader to prevent giant request bodies (DoS attack)
 	maxBytes := 1_048_576 // 1MB
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
 	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields() // Strict parsing
+	dec.DisallowUnknownFields()
 
 	if err := dec.Decode(dst); err != nil {
-		// ... (error handling for various JSON errors) ...
-		return domain.NewAppError(http.StatusBadRequest, "Invalid JSON request body", err)
+		return domain.NewAppError(http.StatusBadRequest, constants.ErrInvalidRequest, err)
 	}
-
 	// Check that the body wasn't empty
 	if err := dec.Decode(&struct{}{}); err != io.EOF {
-		return domain.NewAppError(http.StatusBadRequest, "Request body must only contain a single JSON object", nil)
+		return domain.NewAppErrorUser(http.StatusBadRequest,
+			constants.ErrInvalidRequest.Errorf("Request body must only contain a single JSON object"))
 	}
 
 	return nil
