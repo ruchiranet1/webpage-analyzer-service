@@ -1,11 +1,12 @@
 # --- Stage 1: Builder ---
-# This stage builds the Go binary
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
+
+# Install ca-certificates which we will need in the final stage
+RUN apk --no-cache add ca-certificates
 
 WORKDIR /app
 
 # Copy module files and download dependencies
-# This is done first to leverage Docker layer caching
 COPY go.mod go.sum ./
 RUN go mod download
 
@@ -13,30 +14,25 @@ RUN go mod download
 COPY . .
 
 # Build the application
-# -o /app/server: Output the binary to /app/server
-# -ldflags "-s -w": Strips debug symbols and info, making the binary smaller
-# CGO_ENABLED=0: Disables CGO, which is crucial for a static binary
-# GOOS=linux GOARCH=amd64: Ensures we build for a linux/amd64 (Alpine) environment
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /app/server -ldflags="-s -w" ./cmd/server/main.go
 
 # --- Stage 2: Final ---
-# This is the final, minimal production image
-FROM alpine:latest
+FROM scratch
 
-# We need ca-certificates for making HTTPS requests (e.g., fetching pages)
-RUN apk --no-cache add ca-certificates
-
+# 'scratch' is empty, so we must copy essential files from the builder
 WORKDIR /app
 
-# Copy the compiled binary from the 'builder' stage
+# Copy the CA certificates from the builder stage for making HTTPS requests
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Copy the compiled binary
 COPY --from=builder /app/server .
 
-# Set the binary as executable
-RUN chmod +x ./server
+# Copy the config file. This makes the image self-contained.
+COPY config.properties .
 
-# Expose the port the application will run on
+# Expose the port
 EXPOSE 8080
 
-# Set the command to run the application
-# This is equivalent to `docker run <image> ./server`
+# Run the server
 CMD ["./server"]

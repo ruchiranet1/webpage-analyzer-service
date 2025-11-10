@@ -43,21 +43,20 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 
 	// These apply to *every* request, including health checks and metrics.
 	r.Use(logMiddleware)
+	r.Use(mw.Metrics) // Apply metrics globally
 
 	// --- Observability & Health Routes ---
-	// These routes are not part of our API but are crucial for operations.
 	r.Get("/health", cfg.Handler.HandleHealth)
 
 	// Mount the Prometheus metrics handler to expose /metrics
 	r.Handle("/metrics", promhttp.Handler())
 
-	// Mount the pprof profiling handlers with /debug/pprof/*
-	r.Mount("/debug", pprofHandlers())
+	// Mount the pprof profiling handlers
+	r.Mount("/debug/pprof", pprofHandlers())
 
 	// --- API v1 Routes ---
 	r.Route("/api/v1", func(r chi.Router) {
 		// Apply middleware for the v1 API group:
-		r.Use(mw.Metrics)
 		r.Use(rateLimitMiddleware)
 		r.Use(authMiddleware)
 
@@ -74,14 +73,15 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 // pprofHandlers returns a sub-router for pprof endpoints.
 func pprofHandlers() http.Handler {
 	r := chi.NewRouter()
-	r.HandleFunc("/pprof", pprof.Index)
-	r.HandleFunc("/pprof/cmdline", pprof.Cmdline)
-	r.HandleFunc("/pprof/profile", pprof.Profile)
-	r.HandleFunc("/pprof/symbol", pprof.Symbol)
-	r.HandleFunc("/pprof/trace", pprof.Trace)
-	r.Handle("/pprof/goroutine", pprof.Handler("goroutine"))
-	r.Handle("/pprof/heap", pprof.Handler("heap"))
-	r.Handle("/pprof/threadcreate", pprof.Handler("threadcreate"))
-	r.Handle("/pprof/block", pprof.Handler("block"))
+	r.HandleFunc("/", pprof.Index)
+	r.HandleFunc("/cmdline", pprof.Cmdline)
+	r.HandleFunc("/profile", pprof.Profile)
+	r.HandleFunc("/symbol", pprof.Symbol)
+	r.HandleFunc("/trace", pprof.Trace)
+	r.Handle("/goroutine", pprof.Handler("goroutine"))
+	r.Handle("/heap", pprof.Handler("heap"))
+	r.Handle("/threadcreate", pprof.Handler("threadcreate"))
+	r.Handle("/block", pprof.Handler("block"))
+	r.Handle("/allocs", pprof.Handler("allocs"))
 	return r
 }

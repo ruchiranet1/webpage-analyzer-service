@@ -36,7 +36,6 @@ func (c *Consumer) Start(ctx context.Context) {
 	jobs := make(chan *domain.AnalysisRequest)
 
 	// Start the subscriber in its own goroutine
-	// It will block and listen for jobs, sending them to our `jobs` channel
 	go func() {
 		if err := c.subscriber.Subscribe(ctx, jobs); err != nil {
 			c.logger.ErrorContext(ctx, "Queue subscriber failed", "error", err)
