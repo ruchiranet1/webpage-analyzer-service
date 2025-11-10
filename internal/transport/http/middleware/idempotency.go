@@ -126,11 +126,9 @@ func (m *IdempotencyMiddleware) Middleware(next http.Handler) http.Handler {
 			data, err := json.Marshal(resp)
 			if err != nil {
 				m.logger.ErrorContext(ctx, "Failed to marshal response for cache", "key", key, "error", err)
-				// Don't fail, just couldn't cache
 				return
 			}
 
-			// *** THIS IS THE KEY ***
 			if err := m.cache.Set(ctx, key, data, m.ttl); err != nil {
 				m.logger.ErrorContext(ctx, "Cache SET failed for idempotency", "key", key, "error", err)
 			}

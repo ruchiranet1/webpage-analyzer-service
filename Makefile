@@ -2,7 +2,9 @@
 
 # Define the binary name and output directory
 BINARY_NAME=server
-BINARY_DIR=./bin
+IMAGE_NAME=webpage-analyzer-service
+BINARY_DIR=.\bin
+COVERAGE_FILE=coverage.out
 
 # --- Build Tasks ---
 
@@ -10,8 +12,8 @@ BINARY_DIR=./bin
 .PHONY: build
 build:
 	@echo "Building application..."
-	@go build -o $(BINARY_DIR)/$(BINARY_NAME) ./cmd/server/main.go
-	@echo "Build complete: $(BINARY_DIR)/$(BINARY_NAME)"
+	@go build -o $(BINARY_DIR)\$(BINARY_NAME) ./cmd/server/main.go
+	@echo "Build complete: $(BINARY_DIR)\$(BINARY_NAME)"
 
 # run: Runs the application using go run (for development)
 .PHONY: run
@@ -25,17 +27,25 @@ test:
 	@echo "Running tests..."
 	@go test ./... -v
 
+# coverage: Runs tests and generates a code coverage report, filtering out 0.0% functions
+.PHONY: coverage
+coverage:
+	@echo "Running tests and generating coverage report..."
+	@go test ./... -coverprofile="$(COVERAGE_FILE)"
+
+
 # tidy: Tidies the go.mod and go.sum files
 .PHONY: tidy
 tidy:
 	@echo "Tidying modules..."
 	@go mod tidy
 
-# clean: Removes the build directory (Windows-compatible)
+# clean: Removes the build directory (Windows-compatible) and coverage files
 .PHONY: clean
 clean:
 	@echo "Cleaning build artifacts..."
-	@if exist $(BINARY_DIR) ( RMDIR /S /Q $(BINARY_DIR) ) else ( echo "No build artifacts to clean." )
+	@if exist $(BINARY_DIR) ( RMDIR /S /Q $(BINARY_DIR) ) else ( echo "No binary directory to clean." )
+	@if exist $(COVERAGE_FILE) ( DEL /F /Q $(COVERAGE_FILE) ) else ( echo "No coverage file to clean." )
 
 # --- Docker Tasks ---
 
@@ -43,17 +53,22 @@ clean:
 .PHONY: docker-build
 docker-build:
 	@echo "Building Docker image..."
-	@docker build -t webpage-analyzer-service:latest .
+	@docker build -t $(IMAGE_NAME):latest .
 
 # docker-run: Runs the Docker container
 .PHONY: docker-run
 docker-run:
 	@echo "Running Docker container..."
-	@docker run -p 8080:8080 -e "LOGGER_LEVEL=debug" --rm webpage-analyzer-service:latest
+	@docker run -p 8080:8080 -e "LOGGER_LEVEL=debug" --rm $(IMAGE_NAME):latest
 
-# docker-push: (Placeholder) Tag and push the image to a registry
+# docker-push:
+# Usage: make docker-push REPO=docker-repo-name/webpage-analyzer-service
 .PHONY: docker-push
 docker-push:
-	@echo "Tag and push logic would go here (e.g., docker push your-registry/webpage-analyzer-service)"
+	@echo "Tagging image $(IMAGE_NAME):latest as $(REPO):latest..."
+	@docker tag $(IMAGE_NAME):latest $(REPO):latest
+	@echo "Pushing $(REPO):latest..."
+	@docker push $(REPO):latest
+	@echo "Push complete."
 
 .DEFAULT_GOAL := build

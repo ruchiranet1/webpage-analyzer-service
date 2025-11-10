@@ -14,6 +14,8 @@ import (
 
 	"golang.org/x/time/rate"
 
+	"github.com/rs/cors"
+
 	"webpage-analyzer-service/internal/analysis"
 	"webpage-analyzer-service/internal/auth"
 	"webpage-analyzer-service/internal/config"
@@ -91,9 +93,9 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 		logger.With("component", "analysis_service"),
 	)
 
-	//  Transport Layer (HTTP)
+	// 	Transport Layer (HTTP)
 	logger.Debug("Initializing HTTP transport...")
-	//  Create the Handler (injects services)
+	// 	Create the Handler (injects services)
 	httpHandler := httptransport.NewHandler(
 		analysisSvc,
 		logger.With("component", "http_handler"),
@@ -111,10 +113,24 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	}
 	router := httptransport.NewRouter(routerConfig)
 
+	// --- CORS Handling ---
+	c := cors.New(cors.Options{
+		// TODO: Temporarily allowing all origins
+		AllowedOrigins:     []string{"*"},
+		AllowedMethods:     []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:     []string{"Authorization", "Content-Type", "Idempotency-Key"},
+		AllowCredentials:   true,
+		OptionsPassthrough: false,
+		Debug:              cfg.Logger.Level == "debug",
+	})
+
+	// Wrap the existing router with the CORS middleware
+	corsRouter := c.Handler(router)
+
 	// Create the HTTP Server
 	srv := &http.Server{
 		Addr:    ":" + fmt.Sprint(cfg.HTTP.Port),
-		Handler: router,
+		Handler: corsRouter, // Use the CORS-wrapped router
 		// Add standard timeouts, TODO need to add to the config.
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
@@ -152,7 +168,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 		logger.Info("HTTP server has shut down.")
 	}()
 
-	//  --- Graceful Shutdown ---
+	// 	--- Graceful Shutdown ---
 	// Block here until context is canceled (e.g., SIGINT)
 	<-ctx.Done()
 	logger.Info("Shutdown signal received. Shutting down services...")

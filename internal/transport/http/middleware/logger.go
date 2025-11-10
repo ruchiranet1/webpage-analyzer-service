@@ -7,8 +7,6 @@ import (
 )
 
 // responseLogger wraps http.ResponseWriter to capture the status code.
-// This is a simplified recorder compared to the idempotency one,
-// as we only need the status code for logging.
 type responseLogger struct {
 	http.ResponseWriter
 	statusCode int
@@ -23,8 +21,6 @@ func (rl *responseLogger) WriteHeader(statusCode int) {
 	rl.ResponseWriter.WriteHeader(statusCode)
 }
 
-// Logger is a middleware that logs details about each incoming request
-// and its response using structured logging (slog).
 func Logger(logger *slog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
