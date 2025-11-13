@@ -6,7 +6,6 @@ import (
 	"net/http/pprof"
 	"time"
 
-	"webpage-analyzer-service/internal/auth"
 	"webpage-analyzer-service/internal/infrastructure/cache"
 	mw "webpage-analyzer-service/internal/transport/http/middleware"
 
@@ -17,8 +16,8 @@ import (
 
 // RouterConfig holds all the dependencies needed to build the router.
 type RouterConfig struct {
-	Handler        *Handler
-	AuthSvc        auth.Service
+	Handler *Handler
+	//AuthSvc        auth.Service
 	CacheSvc       cache.Service
 	Logger         *slog.Logger
 	RateLimiter    *rate.Limiter
@@ -30,7 +29,7 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 	r := chi.NewRouter()
 
 	// --- Create Middleware Instances ---
-	authMiddleware := mw.Authenticate(cfg.AuthSvc, cfg.Logger)
+	//authMiddleware := mw.Authenticate(cfg.AuthSvc, cfg.Logger)
 	logMiddleware := mw.Logger(cfg.Logger)
 	rateLimitMiddleware := mw.RateLimit(cfg.RateLimiter, cfg.Logger)
 
@@ -58,7 +57,7 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Apply middleware for the v1 API group:
 		r.Use(rateLimitMiddleware)
-		r.Use(authMiddleware)
+		//r.Use(authMiddleware)
 
 		// Synchronous endpoint:
 		r.With(idempotencyMiddleware.Middleware).Post("/analyzes", cfg.Handler.HandleAnalyzeSync)

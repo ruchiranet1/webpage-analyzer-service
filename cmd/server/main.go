@@ -17,7 +17,6 @@ import (
 	"github.com/rs/cors"
 
 	"webpage-analyzer-service/internal/analysis"
-	"webpage-analyzer-service/internal/auth"
 	"webpage-analyzer-service/internal/config"
 	"webpage-analyzer-service/internal/constants"
 	"webpage-analyzer-service/internal/infrastructure/cache"
@@ -73,13 +72,13 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	// Infrastructure: Caching (for Idempotency)
 	cacheSvc := cache.NewInMemoryCache()
 
-	// Infrastructure: Auth Service
-	authSvc, err := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.TokenTTL)
+	// Infrastructure: Auth Service, disabled temp
+	//authSvc, err := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.TokenTTL)
 
-	if err != nil {
-		logger.Error(constants.MsgFailedToCreateAuthSvc, constants.Error, err)
-		return fmt.Errorf("%s: %w", constants.MsgFailedToCreateAuthSvc, err)
-	}
+	// if err != nil {
+	// 	logger.Error(constants.MsgFailedToCreateAuthSvc, constants.Error, err)
+	// 	return fmt.Errorf("%s: %w", constants.MsgFailedToCreateAuthSvc, err)
+	// }
 
 	// Infrastructure: Queue (for Async API - next stage)
 	queuePub, queueSub := queue.NewStubQueue(logger.With("component", "queue"))
@@ -104,8 +103,8 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 
 	// Create the Router
 	routerConfig := &httptransport.RouterConfig{
-		Handler:        httpHandler,
-		AuthSvc:        authSvc,
+		Handler: httpHandler,
+		//AuthSvc:        authSvc,
 		CacheSvc:       cacheSvc,
 		Logger:         logger.With("component", "http_router"),
 		RateLimiter:    limiter,
