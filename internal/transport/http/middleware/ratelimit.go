@@ -12,7 +12,6 @@ func RateLimit(limiter *rate.Limiter, logger *slog.Logger) func(next http.Handle
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Check if the request is allowed.
-			// Allow() is a non-blocking check.
 			if !limiter.Allow() {
 				// Request is not allowed (bucket is empty)
 				logger.WarnContext(r.Context(), "Rate limit exceeded", "remote_addr", r.RemoteAddr)

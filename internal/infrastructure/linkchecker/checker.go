@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"webpage-analyzer-service/internal/analysis"
+
+	"github.com/bytedance/gopkg/util/logger"
 )
 
 // maxWorkers defines the number of concurrent goroutines in the worker pool.
@@ -47,7 +49,7 @@ func (lc *linkChecker) Check(ctx context.Context, links []string) int {
 	// The `jobs` channel is buffered. This isn't strictly necessary
 	jobs := make(chan string, len(links))
 
-	// 1. Start the worker pool (CSP Pattern)
+	// 1. Start the worker pool
 	numWorkers := min(maxWorkers, len(links))
 	for w := 0; w < numWorkers; w++ {
 		go lc.worker(ctx, &wg, jobs, &inaccessibleCount)
@@ -65,6 +67,7 @@ func (lc *linkChecker) Check(ctx context.Context, links []string) int {
 	// 4. Wait for all goroutines to finish
 	wg.Wait()
 
+	logger.Info(inaccessibleCount)
 	return int(inaccessibleCount.Load())
 }
 
@@ -98,7 +101,7 @@ func (lc *linkChecker) isLinkAccessible(ctx context.Context, link string) bool {
 	// Create request with context for cancellation
 	req, err := http.NewRequestWithContext(ctx, "HEAD", link, nil)
 	if err != nil {
-		lc.logger.DebugContext(ctx, "Link check failed (request creation)", "link", link, "error", err)
+		lc.logger.WarnContext(ctx, "Link check failed (request creation)", "link", link, "error", err)
 		return false // Malformed URL
 	}
 
@@ -108,14 +111,14 @@ func (lc *linkChecker) isLinkAccessible(ctx context.Context, link string) bool {
 	resp, err := lc.client.Do(req)
 	if err != nil {
 		// This includes timeouts, connection refused, DNS errors, etc.
-		lc.logger.DebugContext(ctx, "Link check failed (network error)", "link", link, "error", err)
+		lc.logger.WarnContext(ctx, "Link check failed (network error)", "link", link, "error", err)
 		return false
 	}
 	defer resp.Body.Close()
 
 	// consider any 2xx status code as "accessible".
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		lc.logger.DebugContext(ctx, "Link check failed (non-2xx status)", "link", link, "status", resp.StatusCode)
+		lc.logger.WarnContext(ctx, "Link check failed (non-2xx status)", "link", link, "status", resp.StatusCode)
 		return false
 	}
 

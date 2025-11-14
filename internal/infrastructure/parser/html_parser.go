@@ -98,15 +98,38 @@ func (p *htmlParser) Parse(ctx context.Context, r io.Reader, baseURL *url.URL) (
 // findLoginForm checks for the presence of a form containing a password input.
 func (p *htmlParser) findLoginForm(doc *goquery.Document) bool {
 	found := false
-	// Find all forms on the page
+
+	userFieldSelector := "input[type='email'], " +
+		"input[name*='user'], " +
+		"input[name*='login'], " +
+		"input[name*='email'], " +
+		"input[id*='user'], " +
+		"input[id*='login'], " +
+		"input[id*='email']"
+
 	doc.Find("form").EachWithBreak(func(i int, form *goquery.Selection) bool {
-		// Check if this form contains an input of type 'password'
-		if form.Find("input[type='password']").Length() > 0 {
+		hasPasswordInput := form.Find("input[type='password']").Length() > 0
+		if !hasPasswordInput {
+			return true
+		}
+
+		hasUserField := false
+		form.Find(userFieldSelector).EachWithBreak(func(j int, input *goquery.Selection) bool {
+			if inputType, _ := input.Attr("type"); inputType != "password" {
+				hasUserField = true
+				return false
+			}
+			return true
+		})
+
+		if hasUserField {
 			found = true
 			return false
 		}
+
 		return true
 	})
+
 	return found
 }
 

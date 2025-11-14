@@ -4,6 +4,7 @@ go 1.24
 
 require (
 	github.com/PuerkitoBio/goquery v1.9.2
+	github.com/bytedance/gopkg v0.1.3
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/prometheus/client_golang v1.19.1
