@@ -81,16 +81,7 @@ All /api/v1 routes are protected by JWT authentication.
 Authentication
 First, set this valid JWT in your shell environment. This token is signed with the default jwt.secret from your config.properties.
 
-```PowerShell
-PowerShell
 
-$TOKEN="generated_token"
-```
-
-Bash (Linux/macOS):
-```bash
-TOKEN="generated_token"
-```
 
 1. Synchronous Analysis
 This endpoint sends a request, waits for the full analysis, and returns the JSON result.
@@ -101,9 +92,8 @@ Request (PowerShell):
 
 ```PowerShell
 curl -X POST http://localhost:8080/api/v1/analyzes `
--H "Authorization: Bearer $TOKEN" `
 -H "Content-Type: application/json" `
--H "Idempotency-Key: $(New-Guid)" `
+-H "Idempotency-Key: 1234567" `
 -d '{"requestId":"demo-sync-1","email":"test@example.com","url":"https://httpbin.org/html"}'
 ```
 
