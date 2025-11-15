@@ -105,7 +105,7 @@ func (m *IdempotencyMiddleware) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// 4. Cache MISS: We've never seen this key.
+		// 4. Cache MISS, did not have the key
 		m.logger.DebugContext(ctx, "Idempotency cache MISS", "key", key)
 
 		// Create our response recorder to capture the *next* handler's response

@@ -19,7 +19,6 @@ func TestNewRouter_HealthMetricsPprof(t *testing.T) {
 
 	cfg := &RouterConfig{
 		Handler:        &Handler{},
-		AuthSvc:        nil,
 		CacheSvc:       nil,
 		Logger:         logger,
 		RateLimiter:    rate.NewLimiter(rate.Inf, 0),

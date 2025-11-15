@@ -10,7 +10,7 @@ type AppError struct {
 	// StatusCode is the HTTP status code (e.g., 400, 401, 500).
 	StatusCode int `json:"-"`
 
-	// ErrorCode is the application-specific code (e.g., "WPA20004").
+	// ErrorCode is the application-specific code (e.g "WPA20004").
 	ErrorCode string `json:"error_code"`
 
 	// public-facing error message.
@@ -30,7 +30,7 @@ func NewAppError(statusCode int, errDef constants.ErrorDefinition, internalError
 	}
 }
 
-// NewAppErrorUser creates a new application error with a specific status code (no internal error).
+// NewAppErrorUser creates a new application error with a specific status code
 func NewAppErrorUser(statusCode int, errDef constants.ErrorDefinition) *AppError {
 	// Calls the main constructor with no internal error
 	return NewAppError(statusCode, errDef, nil)
@@ -44,7 +44,6 @@ func NewInternalError(errDef constants.ErrorDefinition, internalError error) *Ap
 
 // NewInternalErrorUser creates a new 500-level user-facing error.
 func NewInternalErrorUser(errDef constants.ErrorDefinition) *AppError {
-	// Calls the main constructor, defaulting to 500 and no internal error
 	return NewAppError(http.StatusInternalServerError, errDef, nil)
 }
 
