@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,7 +32,7 @@ func NewJWTService(secret string, tokenTTL time.Duration) (Service, error) {
 	}, nil
 }
 
-// CustomClaims defines the custom data we'll store in our JWT.
+// CustomClaims defines the custom data
 type CustomClaims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email"`
@@ -68,9 +69,6 @@ func (s *jwtService) GenerateToken(ctx context.Context, userID string, email str
 // ValidateRequest parses and validates a JWT from an HTTP request's
 func (s *jwtService) ValidateRequest(ctx context.Context, r *http.Request) (string, *domain.AppError) {
 
-	// TODO need to resolve this later
-	return "temp-bypassed", nil
-
 	tokenString, appErr := s.extractTokenFromHeader(r)
 	if appErr != nil {
 		return "", appErr
@@ -88,9 +86,10 @@ func (s *jwtService) ValidateRequest(ctx context.Context, r *http.Request) (stri
 
 	// Handle parsing errors
 	if err != nil {
-		if err == jwt.ErrTokenExpired {
+		if errors.Is(err, jwt.ErrTokenExpired) {
 			return "", domain.NewAppError(http.StatusUnauthorized, constants.ErrTokenExpired, err)
 		}
+		// All other errors are considered invalid
 		return "", domain.NewAppError(http.StatusUnauthorized, constants.ErrTokenInvalid, err)
 	}
 

@@ -216,6 +216,7 @@ func TestLinkCountingWithRelativeAndAbsolute(t *testing.T) {
 	}
 }
 
+// here main assumption is login attributes can be there outside of the form as well.
 func TestFindLoginFormVariousAttributes(t *testing.T) {
 	logger := newTestLogger()
 	p := NewHTMLParser(logger).(*htmlParser)
@@ -228,14 +229,14 @@ func TestFindLoginFormVariousAttributes(t *testing.T) {
 		expected bool
 	}{
 		{
-			name:     "input password lowercase",
+			name:     "input password lowercase (in form)",
 			html:     `<html><body><form><input type="password"/></form></body></html>`,
 			expected: true,
 		},
 		{
-			name:     "input PASSWORD uppercase",
+			name:     "input PASSWORD uppercase (in form)",
 			html:     `<html><body><form><input type="PASSWORD"/></form></body></html>`,
-			expected: true, // goquery attribute selection is case-insensitive for types in selectors in practice
+			expected: true,
 		},
 		{
 			name:     "no password input",
@@ -243,8 +244,28 @@ func TestFindLoginFormVariousAttributes(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "no forms at all",
+			name:     "no forms at all (password in div)",
 			html:     `<html><body><div><input type="password"/></div></body></html>`,
+			expected: true, // <-- CORRECTED: This now passes
+		},
+		{
+			name:     "autocomplete=current-password (no form)",
+			html:     `<html><body><input type="text" autocomplete="current-password"/></body></html>`,
+			expected: true,
+		},
+		{
+			name:     "name=pwd (no form)",
+			html:     `<html><body><input type="text" name="pwd"/></body></html>`,
+			expected: true,
+		},
+		{
+			name:     "id=pass (no form)",
+			html:     `<html><body><input type="text" id="pass"/></body></html>`,
+			expected: true,
+		},
+		{
+			name:     "autocomplete=new-password (false positive check)",
+			html:     `<html><body><input type="text" autocomplete="new-password"/></body></html>`,
 			expected: false,
 		},
 	}

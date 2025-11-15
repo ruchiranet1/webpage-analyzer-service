@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // AnalysisRequest defines the payload for an analysis request
 // {"requestId":"demo1","email":"webUser1@gmail.com","url":"https://httpbin.org/html"}
 type AnalysisRequest struct {
@@ -22,4 +24,11 @@ type LinkCounts struct {
 	Internal     int `json:"internal"`
 	External     int `json:"external"`
 	Inaccessible int `json:"inaccessible"`
+}
+
+// User represents a user in the system.
+type User struct {
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }

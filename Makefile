@@ -15,7 +15,7 @@ build:
 	@go build -o $(BINARY_DIR)\$(BINARY_NAME) ./cmd/server/main.go
 	@echo "Build complete: $(BINARY_DIR)\$(BINARY_NAME)"
 
-# run: Runs the application using go run (for development)
+# run: Runs the application using go run 
 .PHONY: run
 run:
 	@echo "Starting application (dev)..."
@@ -27,7 +27,7 @@ test:
 	@echo "Running tests..."
 	@go test ./... -v
 
-# coverage: Runs tests and generates a code coverage report, filtering out 0.0% functions
+# coverage: Runs tests and generates a code coverage report
 .PHONY: coverage
 coverage:
 	@echo "Running tests and generating coverage report..."
