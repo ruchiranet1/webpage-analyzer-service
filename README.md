@@ -7,7 +7,7 @@ It analyzes a web page URL and returns:
 * Page title
 * Heading counts (h1–h6)
 * Internal, external, and inaccessible link counts
-* Whether a login form is present
+* Whether a login form is present (Assumption : Login form can exist without form attribute also)
 
 ## ✨ Features
 
@@ -27,6 +27,7 @@ It analyzes a web page URL and returns:
 * **Authentication**: `golang-jwt/jwt` (v5)
 * **Resiliency**: `sony/gobreaker` (Circuit Breaker)
 * **Observability**: `prometheus/client_golang`
+
 
 ## 🚀 Getting Started
 
@@ -88,13 +89,15 @@ This endpoint sends a request, waits for the full analysis, and returns the JSON
 
 Endpoint: POST /api/v1/analyzes
 
-Request (PowerShell):
+This endpoint supports idempotency to allow you to safely retry requests without risking duplicate operations. 
 
-```PowerShell
-curl -X POST http://localhost:8080/api/v1/analyzes `
--H "Content-Type: application/json" `
--H "Idempotency-Key: 1234567" `
--d '{"requestId":"demo-sync-1","email":"test@example.com","url":"https://httpbin.org/html"}'
+To use this feature, the client must provide a unique Idempotency-Key in the HTTP header for each new analysis request.
+
+Request
+
+Note : As mentioned in the above, use the unique Idempotency-Key
+```bash
+curl -X POST http://localhost:8080/api/v1/analyzes -H "Content-Type: application/json" -H "Idempotency-Key: 1234567" -d "{\"requestId\":\"demo-sync-1\",\"email\":\"test@example.com\",\"url\":\"https://uom.lk\"}"
 ```
 
 Success Response (200 OK):
@@ -124,14 +127,17 @@ This endpoint sends a request and immediately receives a 202 Accepted response. 
 
 Endpoint: POST /api/v1/analyzes/async
 
-Request 
-```PowerShell
-PowerShell
+This endpoint supports idempotency to allow you to safely retry requests without risking duplicate operations. 
 
-curl -X POST http://localhost:8080/api/v1/analyzes/async `
--H "Content-Type: application/json" `
--d '{"requestId":"demo-async-1","email":"test-async@example.com","url":"https://go.dev"'
+To use this feature, the client must provide a unique Idempotency-Key in the HTTP header for each new analysis request.
+
+Request
+
+Note : As mentioned in the above, use the unique Idempotency-Key
+```bash
+curl -X POST http://localhost:8080/api/v1/analyzes/async -H "Content-Type: application/json" -H "Idempotency-Key: 1234567" -d "{\"requestId\":\"demo-sync-1\",\"email\":\"test@example.com\",\"url\":\"https://uom.lk\"}"
 ```
+
 Success Response (202 Accepted):
 JSON
 ```json
@@ -141,8 +147,11 @@ JSON
 }
 ```
 
+Note : Purpose of this API is to perfom analysis asynchronously and send the results to the client email. This API completion is next stage task, right now accepting the requests only.
+
+
 3. Health & Observability
-These endpoints are not authenticated and are used for monitoring.
+This API is used to monitor the health status of the application.
 
 Health Check: GET /health
 
