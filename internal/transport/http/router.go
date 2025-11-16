@@ -29,7 +29,6 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 	r := chi.NewRouter()
 
 	// --- Create Middleware Instances ---
-	//authMiddleware := mw.Authenticate(cfg.AuthSvc, cfg.Logger)
 	logMiddleware := mw.Logger(cfg.Logger)
 	rateLimitMiddleware := mw.RateLimit(cfg.RateLimiter, cfg.Logger)
 
@@ -57,7 +56,6 @@ func NewRouter(cfg *RouterConfig) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Apply middleware for the v1 API group:
 		r.Use(rateLimitMiddleware)
-		//r.Use(authMiddleware)
 
 		// Synchronous endpoint:
 		r.With(idempotencyMiddleware.Middleware).Post("/analyzes", cfg.Handler.HandleAnalyzeSync)
