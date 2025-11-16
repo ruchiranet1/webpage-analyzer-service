@@ -48,8 +48,38 @@ This diagram shows the sequence flow for handling an analysis request through th
 
 The application is configured using the `config.properties` file. Before running, you must create this file in the root of the project.
 
-2. How to Run
-Option A: Run Locally (with make)
+
+### 2. Test coverage
+
+Execute either 1 or 2
+```code
+
+1. <<webpage-analyzer-service-directory>>> make coverage or
+2. <<webpage-analyzer-service-directory>>> go test ./... -coverprofile=coverage.out
+ 
+"Running tests and generating coverage report..."
+        webpage-analyzer-service/cmd/server             coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/analysis      0.786s  coverage: 93.5% of statements
+ok      webpage-analyzer-service/internal/auth  0.929s  coverage: 93.5% of statements
+ok      webpage-analyzer-service/internal/config        0.850s  coverage: 92.6% of statements
+        webpage-analyzer-service/internal/constants             coverage: 0.0% of statements
+        webpage-analyzer-service/internal/domain                coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/cache  0.949s  coverage: 100.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/fetcher        0.527s  coverage: 93.8% of statements
+ok      webpage-analyzer-service/internal/infrastructure/linkchecker    0.522s  coverage: 94.9% of statements
+        webpage-analyzer-service/internal/infrastructure/logging                coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/parser 0.612s  coverage: 98.7% of statements
+        webpage-analyzer-service/internal/infrastructure/queue          coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/validation     0.540s  coverage: 91.7% of statements
+ok      webpage-analyzer-service/internal/transport/http        0.600s  coverage: 91.0% of statements
+ok      webpage-analyzer-service/internal/transport/http/middleware     0.604s  coverage: 69.0% of statements
+
+```
+
+
+### 3. How to Run
+
+#### Option A: Run Locally (with make)
 
 This is the easiest way to run the application for development.
 
@@ -61,7 +91,7 @@ make tidy
 make run
 ```
 
-Option B: Run Locally
+#### Option B: Run Locally
 ```bash
 # 1. Install dependencies
 go mod tidy
@@ -70,7 +100,7 @@ go mod tidy
 go run ./cmd/server/main.go
 ```
 
-Option C: Run with Docker (Production-Style)
+#### Option C: Run with Docker (Production-Style)
 This builds the multi-stage Dockerfile and runs the production-ready container.
 
 ```bash
@@ -80,21 +110,13 @@ make docker-build
 # 2. Run the container
 make docker-run
 ```
-
 The server is now running on http://localhost:8080.
 
-📡 API Endpoints
-All /api/v1 routes are protected by JWT authentication.
 
-Authentication
-First, set this valid JWT in your shell environment. This token is signed with the default jwt.secret from your config.properties.
+### 4. API Endpoints
 
-
-
-1. Synchronous Analysis
+#### 1. Synchronous Endpoint: POST /api/v1/analyzes
 This endpoint sends a request, waits for the full analysis, and returns the JSON result.
-
-Endpoint: POST /api/v1/analyzes
 
 This endpoint supports idempotency to allow you to safely retry requests without risking duplicate operations. 
 
@@ -129,10 +151,8 @@ Success Response (200 OK):
 }
 ```
 
-2. Asynchronous Analysis
+#### 2. Asynchronous Endpoint: POST /api/v1/analyzes/async
 This endpoint sends a request and immediately receives a 202 Accepted response. The analysis is processed in the background (visible in server logs).
-
-Endpoint: POST /api/v1/analyzes/async
 
 This endpoint supports idempotency to allow you to safely retry requests without risking duplicate operations. 
 
@@ -157,52 +177,25 @@ JSON
 Note : Purpose of this API is to perfom analysis asynchronously and send the results to the client email. This API completion is next stage task, right now accepting the requests only.
 
 
-4. Health & Observability
+### 5. Health & Observability
 This API is used to monitor the health status of the application.
 
-Health Check: GET /health
+#### Health Check: GET /health
 
 ```bash
 
 curl http://localhost:8080/health
 # {"status":"ok"}
 ```
-Prometheus Metrics: GET /metrics
+#### Prometheus Metrics: GET /metrics
 
 ```bash
 curl http://localhost:8080/metrics
 ```
 
-Go Profiling (pprof):
+#### Go Profiling (pprof):
 ```bash
 http://localhost:8080/debug/pprof/ (index)
 
 http://localhost:8080/debug/pprof/goroutine?debug=1 (all goroutines)
-```
-
-3. Test coverage
-
-Execute either 1 or 2
-```code
-
-1. <<webpage-analyzer-service-directory>>> make coverage or
-2. <<webpage-analyzer-service-directory>>> go test ./... -coverprofile=coverage.out
- 
-"Running tests and generating coverage report..."
-        webpage-analyzer-service/cmd/server             coverage: 0.0% of statements
-ok      webpage-analyzer-service/internal/analysis      0.786s  coverage: 93.5% of statements
-ok      webpage-analyzer-service/internal/auth  0.929s  coverage: 93.5% of statements
-ok      webpage-analyzer-service/internal/config        0.850s  coverage: 92.6% of statements
-        webpage-analyzer-service/internal/constants             coverage: 0.0% of statements
-        webpage-analyzer-service/internal/domain                coverage: 0.0% of statements
-ok      webpage-analyzer-service/internal/infrastructure/cache  0.949s  coverage: 100.0% of statements
-ok      webpage-analyzer-service/internal/infrastructure/fetcher        0.527s  coverage: 93.8% of statements
-ok      webpage-analyzer-service/internal/infrastructure/linkchecker    0.522s  coverage: 94.9% of statements
-        webpage-analyzer-service/internal/infrastructure/logging                coverage: 0.0% of statements
-ok      webpage-analyzer-service/internal/infrastructure/parser 0.612s  coverage: 98.7% of statements
-        webpage-analyzer-service/internal/infrastructure/queue          coverage: 0.0% of statements
-ok      webpage-analyzer-service/internal/infrastructure/validation     0.540s  coverage: 91.7% of statements
-ok      webpage-analyzer-service/internal/transport/http        0.600s  coverage: 91.0% of statements
-ok      webpage-analyzer-service/internal/transport/http/middleware     0.604s  coverage: 69.0% of statements
-
 ```
