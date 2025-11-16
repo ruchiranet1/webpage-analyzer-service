@@ -72,14 +72,6 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 	// Infrastructure: Caching (for Idempotency)
 	cacheSvc := cache.NewInMemoryCache()
 
-	// Infrastructure: Auth Service, disabled temp
-	//authSvc, err := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.TokenTTL)
-
-	// if err != nil {
-	// 	logger.Error(constants.MsgFailedToCreateAuthSvc, constants.Error, err)
-	// 	return fmt.Errorf("%s: %w", constants.MsgFailedToCreateAuthSvc, err)
-	// }
-
 	// Infrastructure: Queue (for Async API - next stage)
 	queuePub, queueSub := queue.NewStubQueue(logger.With("component", "queue"))
 
@@ -103,8 +95,7 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 
 	// Create the Router
 	routerConfig := &httptransport.RouterConfig{
-		Handler: httpHandler,
-		//AuthSvc:        authSvc,
+		Handler:        httpHandler,
 		CacheSvc:       cacheSvc,
 		Logger:         logger.With("component", "http_router"),
 		RateLimiter:    limiter,
@@ -114,7 +105,6 @@ func run(ctx context.Context, stop context.CancelFunc) error {
 
 	// --- CORS Handling ---
 	c := cors.New(cors.Options{
-		// TODO: Temporarily allowing all origins
 		AllowedOrigins:     []string{"*"},
 		AllowedMethods:     []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:     []string{"Authorization", "Content-Type", "Idempotency-Key"},

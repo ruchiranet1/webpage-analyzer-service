@@ -28,6 +28,13 @@ It analyzes a web page URL and returns:
 * **Resiliency**: `sony/gobreaker` (Circuit Breaker)
 * **Observability**: `prometheus/client_golang`
 
+## 🔄 System Flow
+
+This diagram shows the sequence flow for handling an analysis request through the system's different architectural layers.
+
+<p align="center">
+  <img src="./Sequence-Flow-diagram.png" alt="Service Sequence Flow Diagram" width="800">
+</p>
 
 ## 🚀 Getting Started
 
@@ -150,7 +157,7 @@ JSON
 Note : Purpose of this API is to perfom analysis asynchronously and send the results to the client email. This API completion is next stage task, right now accepting the requests only.
 
 
-3. Health & Observability
+4. Health & Observability
 This API is used to monitor the health status of the application.
 
 Health Check: GET /health
@@ -173,3 +180,29 @@ http://localhost:8080/debug/pprof/ (index)
 http://localhost:8080/debug/pprof/goroutine?debug=1 (all goroutines)
 ```
 
+3. Test coverage
+
+Execute either 1 or 2
+```code
+
+1. <<webpage-analyzer-service-directory>>> make coverage or
+2. <<webpage-analyzer-service-directory>>> go test ./... -coverprofile=coverage.out
+ 
+"Running tests and generating coverage report..."
+        webpage-analyzer-service/cmd/server             coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/analysis      0.786s  coverage: 93.5% of statements
+ok      webpage-analyzer-service/internal/auth  0.929s  coverage: 93.5% of statements
+ok      webpage-analyzer-service/internal/config        0.850s  coverage: 92.6% of statements
+        webpage-analyzer-service/internal/constants             coverage: 0.0% of statements
+        webpage-analyzer-service/internal/domain                coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/cache  0.949s  coverage: 100.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/fetcher        0.527s  coverage: 93.8% of statements
+ok      webpage-analyzer-service/internal/infrastructure/linkchecker    0.522s  coverage: 94.9% of statements
+        webpage-analyzer-service/internal/infrastructure/logging                coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/parser 0.612s  coverage: 98.7% of statements
+        webpage-analyzer-service/internal/infrastructure/queue          coverage: 0.0% of statements
+ok      webpage-analyzer-service/internal/infrastructure/validation     0.540s  coverage: 91.7% of statements
+ok      webpage-analyzer-service/internal/transport/http        0.600s  coverage: 91.0% of statements
+ok      webpage-analyzer-service/internal/transport/http/middleware     0.604s  coverage: 69.0% of statements
+
+```

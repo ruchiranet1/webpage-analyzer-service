@@ -35,7 +35,6 @@ func NewHandler(
 
 // HandleHealth is a simple health check endpoint.
 func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
-	// A real health check might also ping its database or other dependencies.
 	h.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"webpage-analyzer-service/internal/analysis"
-
-	"github.com/bytedance/gopkg/util/logger"
 )
 
 // maxWorkers defines the number of concurrent goroutines in the worker pool.
@@ -67,7 +65,6 @@ func (lc *linkChecker) Check(ctx context.Context, links []string) int {
 	// 4. Wait for all goroutines to finish
 	wg.Wait()
 
-	logger.Info(inaccessibleCount)
 	return int(inaccessibleCount.Load())
 }
 
